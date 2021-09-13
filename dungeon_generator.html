@@ -1,0 +1,173 @@
+<html>
+
+<head></head>
+
+<body>
+<canvas id="grid" width="1300" height="1300"></canvas>
+</body>
+</html>
+
+
+<script>
+    var c = document.getElementById("grid");
+    var ctx = c.getContext("2d");
+    var grid_w = 100
+    var grid_h = 100
+    var grid_s = 12
+    var enumerate = false
+    let NORTH = {"x" : 0, "y" : -1}
+    let EAST =  {"x" : 1, "y" : 0}
+    let SOUTH = {"x" : 0, "y" : 1}
+    let WEST = {"x" : -1, "y" : 0}
+    let NESW = [NORTH, EAST, SOUTH, WEST]
+    function fill_pos(x, y, color) {
+        ctx.fillStyle = color
+        ctx.fillRect(0 + grid_s * x, 0 + grid_s * y, grid_s, grid_s);
+    }
+
+    class Zone 
+    {
+        constructor(startPosX, startPosY, sizeX, sizeY) 
+        {
+            this.startX     =   startPosX
+            this.startY     =   startPosY
+            this.endX       =   startPosX + sizeX
+            this.endY     =   startPosY + sizeY
+            this.size_w = sizeX
+            this.size_h = sizeY
+            this.colors = ["red", "blue", "green", "purple", "teal", "black", "pink", "yellow", "orange"]
+        }
+
+        drawBorder() {
+            for (var y = 0; y < this.size_h; y++)
+             {
+                for (var x = 0; x < this.size_w; x++) 
+                {
+                    if (x == 0 || x == this.size_w -1 || y == 0 || y == this.size_h - 1) 
+                        fill_pos(x + this.startX, y + this.startY, "red")
+                }
+            }
+        }
+
+        drawPos(pos, color) 
+        {
+            fill_pos(pos.x + this.startX, pos.y + this.startY, color)
+        }
+
+        selectDirection() {
+            var rand = Math.floor(Math.random() * 4)
+            return NESW[rand];
+        }
+
+        random(from, to) {
+            console.log(from, to)
+            return Math.floor(Math.random() * (to - from) + from)
+        }
+        startWalk() {
+            var startPos = {"x" : this.size_w / 2, "y": this.size_h / 2 }
+            this.currentPosition = startPos
+            this.drawPos(startPos, "black")
+            // this.jointCount = this.random(20, 60)
+            this.jointCount = 8     
+            this.recursiveWalk(null, 0)
+        }
+        
+        setCurrentPosition(x, y) {
+            this.currentPosition = {"x" : x, "y": y}
+        }
+        recursiveWalk(dirFrom, decider) {
+            var new_decider = 0.5
+            var initial_position = {"x" : this.currentPosition.x, "y": this.currentPosition.y}
+            console.error(initial_position)
+            if (this.jointCount <= 0)
+                return
+
+            if (dirFrom != SOUTH && Math.random() > decider ) {
+                let color = this.colors[this.random(0, this.colors.length)]
+                let distance = this.random(3, 6)
+                this.walkMany(SOUTH, distance, color)
+                this.jointCount--;
+                this.recursiveWalk(NORTH, new_decider)
+            }
+            this.setCurrentPosition(initial_position.x, initial_position.y)
+            console.log("Second time", initial_position)
+            if (dirFrom != NORTH && Math.random() > decider ) {
+                let color = this.colors[this.random(0, this.colors.length)]
+                let distance = this.random(3, 6)
+                this.walkMany(NORTH, distance, color)
+                this.jointCount--;
+                this.recursiveWalk(SOUTH, new_decider)
+            }
+            this.setCurrentPosition(initial_position.x, initial_position.y)
+            console.log("Second time", initial_position)
+            if (dirFrom != EAST && Math.random() > decider ) {
+                let color = this.colors[this.random(0, this.colors.length)]
+                let distance = this.random(3, 6)
+                this.walkMany(EAST, distance, color)
+                this.jointCount--;
+                this.recursiveWalk(WEST, new_decider)
+            }
+            this.setCurrentPosition(initial_position.x, initial_position.y)
+            if (dirFrom != WEST && Math.random() > decider ) {
+                let color = this.colors[this.random(0, this.colors.length)]
+                let distance = this.random(3, 6)
+                this.walkMany(WEST, distance, color)
+                this.jointCount--;
+                this.recursiveWalk(EAST, new_decider)
+            }
+
+        }
+        walkMany(dir, count, color) {
+            for (var i = 0; i < count; i++)
+            {
+                if (!this.walkOne(dir, color))
+                    return false
+            }
+        }
+        walkOne(dir, color) {
+            
+            if (this.currentPosition.x + dir.x >= this.size_w - 1|| this.currentPosition.x + dir.x <= 0)
+                return false
+            this.currentPosition.x += dir.x
+
+            if (this.currentPosition.y + dir.y >= this.size_h - 1 || this.currentPosition.y + dir.y <= 0)
+                return false
+            this.currentPosition.y += dir.y
+
+            this.drawPos(this.currentPosition, color)
+            return true
+        }
+    }
+
+    var zones = Array()
+    zones.push(new Zone(1, 1, 40, 40))
+    zones.push(new Zone(50, 1, 40, 40))
+    zones.push(new Zone(1, 50, 40, 40))
+    zones.push(new Zone(50, 50, 40, 40))
+
+
+
+    // draw initial grid
+    for (i = 0; i < grid_h; i++)
+    {
+        for (j = 0; j < grid_w; j++)
+        {
+            ctx.strokeStyle = "#000"
+            ctx.lineWidth = 0.1
+            ctx.strokeRect(0 + grid_s * j, 0 + grid_s * i, grid_s, grid_s);
+            if (enumerate) {
+                ctx.fillStyle = "#000"
+                ctx.font = "6px Arial";
+                ctx.fillText(i * grid_w + j + "", 0 + grid_s * j + 5, 0 + grid_s * i + 13);
+            }
+        }
+    }
+    // grid
+    zones[0].drawBorder()
+    zones[0].startWalk()
+    // zones.forEach(zone => {
+    //     zone.drawBorder()
+    //     zone.startWalk()
+    // });
+
+</script>
