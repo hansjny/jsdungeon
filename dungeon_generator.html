@@ -25,6 +25,17 @@
         ctx.fillRect(0 + grid_s * x, 0 + grid_s * y, grid_s, grid_s);
     }
 
+    function random(from, to) {
+        console.log(from, to)
+        return Math.floor(Math.random() * (to - from) + from)
+    }
+    const celltype = {
+        EMPTY: 0,
+	    BORDER: 1,
+	    ROOM_FLOOR: 2,
+	    ROOM_DOOR: 3,
+        ROOM_ROCK: 4
+    }
     class Zone 
     {
         constructor(startPosX, startPosY, sizeX, sizeY) 
@@ -36,10 +47,18 @@
             this.size_w = sizeX
             this.size_h = sizeY
             this.colors = ["red", "blue", "green", "purple", "teal", "black", "pink", "yellow", "orange"]
-            var grid = new Array(size_h);
-
-            for (var i = 0; i < grid.length; i++) {
-                grid[i] = new Array(size_w);
+            this.grid = new Array(this.size_h);
+            this.houseSize = [3, 5, 7]
+            console.error(" GRID SIZE height: ", this.size_h, "width: ", this.size_h)
+            for (var i = 0; i < this.size_h; i++) {
+                this.grid[i] = new Array(this.size_w);
+                for (var j = 0; j < this.size_w; j++) 
+                {
+                    if (Math.random() < 0.65)
+                        this.grid[i][j] = celltype.EMPTY
+                    else
+                        this.grid[i][j] = celltype.ROCK
+                }
             }
         }
 
@@ -64,41 +83,107 @@
             return NESW[rand];
         }
 
-        random(from, to) {
-            console.log(from, to)
-            return Math.floor(Math.random() * (to - from) + from)
+        makeHouses(num) 
+        {
+            var houses = Array()
+            for (var i = 0; i < num; i++) {
+                var size = this.houseSize[random(0, this.houseSize.length)]
+                houses.push({"size_w" : size, "size_h": size, "door_e": true, "door_w": true, "door_n": true, "door_s": true})
+            }
+            return houses
         }
-        startWalk() {
-            var startPos = {"x" : this.size_w / 2, "y": this.size_h / 2 }
-            this.currentPosition = startPos
-            this.drawPos(startPos, "black")
-            // this.jointCount = this.random(20, 60)
-            this.jointCount = 8     
+
+        empty(y, x) {
+            console.log("trying pos(", x, ", ", y, ")")
+            //console.log(this.grid[y][x])
+            if (y >= this.size_w || this.x >= this.size_w || y <= 0 || x <= 0)
+                return false
+            return (this.grid[y][x] == celltype.EMPTY)
         }
         
-        setCurrentPosition(x, y) {
-            this.currentPosition = {"x" : x, "y": y}
+        addHouse(y, x, house) {
+            for (var i = y; i < y + house.size_h; i++)
+                for (var j = x; j < x + house.size_w; j++)
+                    if (j == x && house.door_w && i == y + (house.size_h - 1) / 2 ) {
+                        this.grid[i][j] = celltype.ROOM_DOOR
+                    }
+                    else if (j == x + (house.size_w - 1) && house.door_e && i == y + (house.size_h - 1) / 2 ) {
+                        this.grid[i][j] = celltype.ROOM_DOOR
+                    }
+                    else if (j == x + (house.size_w - 1) / 2 && house.door_n && i == y ) {
+                        this.grid[i][j] = celltype.ROOM_DOOR
+                    }
+                    else if (j == x + (house.size_w - 1) / 2 && house.door_s && i == y + (house.size_h - 1) ) {
+                        this.grid[i][j] = celltype.ROOM_DOOR
+                    }
+                    else
+                        this.grid[i][j] = celltype.ROOM_FLOOR
+
         }
-        walkMany(dir, count, color) {
-            for (var i = 0; i < count; i++)
-            {
-                if (!this.walkOne(dir, color))
-                    return false
+
+        canPlaceHouse(x, y, house) {
+            var w = house.size_w
+            var h = house.size_h
+            var spacing = 1
+            //check perimeters before checking every tile
+            if (this.empty(y, x ) && this.empty(y + h + spacing , x + w + spacing) && this.empty(y + h + spacing, x) && this.empty(y, x + w + spacing)) {
+                for (i = y; i < h; i++)
+                    for (j = x; j < w; j++)
+                        if (!this.empty(i, j))
+                            return false
+                return true
             }
+            return false
         }
-        walkOne(dir, color) {
-            
-            if (this.currentPosition.x + dir.x >= this.size_w - 1|| this.currentPosition.x + dir.x <= 0)
-                return false
-            this.currentPosition.x += dir.x
 
-            if (this.currentPosition.y + dir.y >= this.size_h - 1 || this.currentPosition.y + dir.y <= 0)
-                return false
-            this.currentPosition.y += dir.y
+        placeHouse(house) {
+            var spacing = 1
+            var w = house.size_w
+            var h = house.size_h
+            for (var y = 0; y < this.size_h; y += h) 
+            {
+                for (var x = 0; x < this.size_w; x += w ) 
+                {
+                    if (this.canPlaceHouse(x, y, house)) 
+                    {
+                        this.addHouse(y, x, house)
+                        return
+                    }
+                }
+            }
 
-            this.drawPos(this.currentPosition, color)
-            return true
         }
+
+        startGen() {
+            var houses = this.makeHouses(40)
+            // this.placeHouse(houses[0])
+            for (var i = 0; i < houses.length; i++)
+                this.placeHouse(houses[i])
+
+            this.renderGrid()
+        }
+
+        renderGrid() {
+            for (var y = 0; y < this.size_h; y ++) 
+                {
+                    for (var x = 0; x < this.size_w; x++ ) 
+                    {
+                        switch(this.grid[y][x]) {
+                            case celltype.EMPTY:
+                                break;
+                            case celltype.ROOM_FLOOR:
+                                fill_pos(this.startX + x, this.startY + y, "green")
+                                break;
+                            case celltype.ROOM_DOOR:
+                                fill_pos(this.startX + x, this.startY + y, "yellow")
+                                break;
+                            case celltype.ROCK:
+                                fill_pos(this.startX + x, this.startY + y, "gray")
+                                break;
+                        }
+                    }
+                }
+            }
     }
 
     var zones = Array()
@@ -124,12 +209,12 @@
             }
         }
     }
+    // zones[0].drawBorder()
+    // zones[0].startGen()
     // grid
-    zones[0].drawBorder()
-    zones[0].startWalk()
-    // zones.forEach(zone => {
-    //     zone.drawBorder()
-    //     zone.startWalk()
-    // });
+    zones.forEach(zone => {
+        zone.drawBorder()
+        zone.startGen()
+    });
 
 </script>
