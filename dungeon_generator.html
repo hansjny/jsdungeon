@@ -3,7 +3,7 @@
 <head></head>
 
 <body>
-<canvas id="grid" width="1300" height="1300"></canvas>
+<canvas id="grid" width="1800" height="1800"></canvas>
 </body>
 </html>
 
@@ -13,24 +13,35 @@
     var ctx = c.getContext("2d");
     var grid_w = 100
     var grid_h = 100
-    var grid_s = 12
+    var grid_s = 13
+    const imageURL = [{path: "images/black_tile.png", name : "black_tile"},
+    {path :"images/white_tile.png", name : "white_tile"},
+    {path :"images/water.png", name : "water"}]; 
+
+    const images = {}
+    var imageCount = 0; 
+
+
     var enumerate = false
-    let NORTH = {"x" : 0, "y" : -1}
-    let EAST =  {"x" : 1, "y" : 0}
-    let SOUTH = {"x" : 0, "y" : 1}
-    let WEST = {"x" : -1, "y" : 0}
-    let NESW = [NORTH, EAST, SOUTH, WEST]
+    let NORTH = 1
+    let EAST =  2
+    let SOUTH = 3
+    let WEST = 4
+    var NESW = [NORTH, EAST, SOUTH, WEST]
+
     function fill_pos(x, y, color) {
         ctx.fillStyle = color
         ctx.fillRect(0 + grid_s * x, 0 + grid_s * y, grid_s, grid_s);
+    }
+    function fill_image(x, y, img) {
+        ctx.drawImage(images[img], 0 + grid_s * x, 0 + grid_s * y, grid_s, grid_s); 
     }
 
     function fill_line(x1, y1, x2, y2, offsetX, offsetY) {
             ctx.beginPath();       // Start a new path
             ctx.lineWidth = 2;
             ctx.strokeStyle = "black";
-            console.log("Offset",  offsetX, offsetY)
-            console.log(grid_s * x1 + offsetX * grid_s, grid_s * y1 + offsetY * grid_s)
+            //console.log(grid_s * x1 + offsetX * grid_s, grid_s * y1 + offsetY * grid_s)
             ctx.moveTo(grid_s * x1 + offsetX * grid_s + grid_s/2, grid_s * y1 + offsetY * grid_s + grid_s/2);    // Move the pen to (30, 50)
             ctx.lineTo(grid_s * x2 + offsetX * grid_s + grid_s/2, grid_s * y2 + offsetY * grid_s + grid_s/2);    // Move the pen to (30, 50)
             ctx.stroke();    
@@ -48,7 +59,7 @@
 	    BORDER: 1,
 	    ROOM_FLOOR: 2,
 	    ROOM_DOOR: 3,
-        ROOM_ROCK: 4
+        ROCK: 4
     }
 
 
@@ -61,6 +72,10 @@
 
         distanceTo(pos) {
             return Math.sqrt(Math.pow((pos.x - this.x), 2) + Math.pow(pos.y - this.y, 2))
+        }
+
+        equals(pos) {
+            return pos.x == this.x && pos.y == this.y
         }
 
     }
@@ -160,16 +175,16 @@
             this.size_h = sizeY
             this.colors = ["red", "blue", "green", "purple", "teal", "black", "pink", "yellow", "orange"]
             this.grid = new Array(this.size_h);
-            this.houseSize = [3, 5]
+            this.houseSize = [3, 5, 7]
             this.houses = []
             this.connectedHouses = []
-
+            this.rockChance = 0.87
             console.error(" GRID SIZE height: ", this.size_h, "width: ", this.size_h)
             for (var i = 0; i < this.size_h; i++) {
                 this.grid[i] = new Array(this.size_w);
                 for (var j = 0; j < this.size_w; j++) 
                 {
-                    if (Math.random() < 0.75)
+                    if (Math.random() < this.rockChance)
                         this.grid[i][j] = celltype.EMPTY
                     else
                         this.grid[i][j] = celltype.ROCK
@@ -191,6 +206,10 @@
         drawPos(pos, color) 
         {
             fill_pos(pos.x + this.startX, pos.y + this.startY, color)
+        }
+
+        drawImagePos(pos, image) {
+            fill_image(pos.x + this.startX, pos.y + this.startY, image)
         }
 
         distanceBetweenHouses(house1, house2) {
@@ -248,46 +267,52 @@
         canPlaceHouse(x, y, house) {
             var w = house.size_w
             var h = house.size_h
-            var spacing = 1
+            var spacing = 3
+            var edge_spacing = 5
 
-            // Place houses within bounds of given map
-            if (y - spacing < 0 || x - spacing < 0 || y + spacing > this.size_h || x + spacing > this.size_w)
+            if (x < edge_spacing || x + w > this.size_w - edge_spacing || y < edge_spacing || y + h > this.size_h - edge_spacing)
                 return false
 
+            var startX = (x - spacing < 0) ? 0 : x - spacing
+            var endX = (x + spacing + w > this.size_w) ? this.size_w : x + spacing + w
+            var startY = (y - spacing < 0) ? 0 : y - spacing
+            var endY = (y + spacing + h > this.size_h) ? this.size_h : y + spacing + h
 
-            if (!this.empty(y, x -  spacing ))
-                return
 
-            if (!this.empty(y - spacing, x ))
-                return
+            var canPlace = true
+            for (var i = startY; i < endY; i++) {
+                for (var j = startX; j < endX; j++) {
+                    if (this.grid[i][j] == celltype.ROOM_FLOOR) {
+                        canPlace = false
+                        break
+                    }
 
-            if (!this.empty(y + h + spacing, x ))
-                return
-
-            if (!this.empty(y, x + spacing + w ))
-                return
-
-            if (this.empty(y, x) && this.empty(y + h + spacing , x + w + spacing) && this.empty(y + h + spacing, x) && this.empty(y, x + w + spacing)) {
-                for (i = y; i < h; i++)
-                    for (j = x; j < w; j++)
-                        if (!this.empty(i, j))
-                            return false
-                return true
+                    if (j > x && j < x + w && i > y && i < y + h) {
+                        if (this.grid[i][j] == celltype.ROCK) {
+                            canPlace = false
+                            break
+                        }
+                    }
+                }
             }
-            return false
+
+
+            return canPlace
         }
 
         placeHouse(house) {
-            var spacing = 1
             var w = house.size_w
             var h = house.size_h
             for (var y = 0; y < this.size_h; y += h) 
             {
                 for (var x = 0; x < this.size_w; x += w ) 
                 {
-                    if (this.canPlaceHouse(x, y, house)) 
+                    var random_wiggle_x = random(x - (random(1, 20)), x + random(1, 20))
+                    var random_wiggle_y = random(y - (random(1, 20)), y + random(1, 20))
+                    if (this.canPlaceHouse(random_wiggle_x, random_wiggle_y, house)) 
                     {
-                        this.addHouse(y, x, house)
+                        this.addHouse(random_wiggle_y,random_wiggle_x, house)
+
                         // house.placeDoors()
                         return
                     }
@@ -297,7 +322,6 @@
         }
 
         houseConnected(house) {
-            console.log(house)
             for (var i = 0; i < this.connectedHouses.length; i++){
                 if (this.connectedHouses[i].id == house.id) {
                     return true
@@ -313,7 +337,6 @@
             var currentNeighbour = null;
             this.connectedHouses.push(currentHouse)
             if (house.connectedTo != null) {
-                console.log("BITCH WE DONE HERE")
                 return null
             }
 
@@ -322,20 +345,17 @@
                     var computed_dist = this.distanceBetweenHouses(currentHouse, houses[j])
                     // console.log(computed_dist, minimumDistance, computed_dist < minimumDistance, this.houseConnected(house[j]))
                     if ( computed_dist < minimumDistance && !this.houseConnected(houses[j])) {
-                        console.log(" in here tho")
                         minimumDistance = computed_dist;
                         currentNeighbour = houses[j]
                     }
                 }
             }
             if (currentNeighbour == null) {
-                console.log("im null")
                 return null
             }
             currentHouse.connect(currentNeighbour) 
             currentHouse = currentNeighbour
             currentNeighbour = null
-            console.log(house.printIdentity())
             this.connectHouses(currentHouse)
         }
 
@@ -345,8 +365,169 @@
             fill_line(house1.getCenterPos().x, house1.getCenterPos().y, house2.getCenterPos().x, house2.getCenterPos().y, this.startX, this.startY)
         }
 
+
+        isValidPos(pos) {
+            if (pos.y >= this.size_h || pos.y <= 0 || pos.x >= this.size_w || pos.x <= 0)
+                return false
+            return true
+        }
+
+        isRock(pos) {
+            if (this.grid[pos.y][pos.x] == celltype.ROCK)
+                return true
+            return false
+        }
+
+        drawTrace(node) {
+            var cur = node
+            this.grid[cur.pos.y][cur.pos.x] = celltype.ROOM_FLOOR
+            while (cur.parent != null) {
+                this.grid[cur.parent.pos.y][cur.parent.pos.x] = celltype.ROOM_FLOOR
+                cur = cur.parent
+            }
+        }
+        AStarConnectNodes(pos1, pos2) {
+            class AStarNode {
+                constructor(pos, f, g, parent) {
+                    this.pos = pos
+                    this.f = f
+                    this.g = g
+                    this.parent = parent
+                }
+            }
+            var endpos = pos2
+            var open = [new AStarNode(pos1, 0, 0, null)]
+            var closed = []
+
+            while (open.length > 0) {
+                var least_f = Infinity
+                var q = null
+                for (var i = 0; i < open.length; i++) {
+                    if (open[i].f < least_f) {
+                        least_f = open[i].f
+                        q = open[i]
+                    }
+                }
+                var loc = open.indexOf(q)
+                if (loc > -1) {
+                    open.splice(loc, 1)
+                }
+
+                var positions = [new Pos(q.pos.x - 1, q.pos.y),
+                new Pos(q.pos.x + 1, q.pos.y),
+                new Pos(q.pos.x, q.pos.y + 1),
+                new Pos(q.pos.x, q.pos.y - 1)]
+
+                for (var j = 0; j < positions.length; j++) {
+                    var newPos = positions[j]
+                    if (!this.isValidPos(newPos)) {
+                        continue
+                    }
+                    if (newPos.equals(endpos)) {
+                        this.drawTrace(new AStarNode(newPos, 0, 0, q))
+                        console.log("FOUND DESTINATION")
+                        return;
+                    }
+
+                    var penalty = 0
+                    if (this.isRock(newPos)) {
+                        penalty = 10
+                    }
+                    var h = endpos.distanceTo(newPos) + penalty
+                    var g = q.g + 1
+                    var f = h + g
+
+                    var skip = false
+
+                    for (var i = 0; i < open.length; i++) {
+                        if (open[i].pos.equals(newPos)) {
+                            if (f > open[i].f) {
+                                skip = true
+                            }
+                        }
+                    }
+
+                    for (var i = 0; i < closed.length; i++) {
+                        if (closed[i].pos.equals(newPos)) {
+                            if (closed[i].f < f) {
+                                skip = true
+                            }
+                        }
+                    }
+
+                    if (skip)
+                        continue
+
+                    open.push(new AStarNode(newPos, g, f, q))
+                }
+                closed.push(q)
+            }
+        }
+
+        drawHouseDoor(house, dir) {
+            var pos = house.getCenterPos()
+            var door_entry_len = 2
+            switch(dir) {
+                case NESW[NORTH]:
+                    // this.grid[pos.y - (house.size_h - 1) / 2][pos.x] = celltype.ROOM_DOOR
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[-i + pos.y - (house.size_h - 1) / 2][pos.x] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x, pos.y - 2 - (house.size_h - 1) / 2)
+                case NESW[SOUTH]:
+                    // this.grid[pos.y + (house.size_h - 1) / 2][pos.x] = celltype.ROOM_DOOR
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[i + pos.y + (house.size_h - 1) / 2][pos.x] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x, pos.y + 2 + (house.size_h - 1) / 2) 
+                case NESW[EAST]:
+                    // this.grid[pos.y][pos.x + (house.size_w - 1) / 2] = celltype.ROOM_DOOR
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[pos.y][i + pos.x + (house.size_w - 1) / 2] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x + 2 + (house.size_w - 1) / 2, pos.y)
+                case NESW[WEST]:
+                    // this.grid[pos.y][pos.x - (house.size_w - 1) / 2] = celltype.ROOM_DOOR
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[pos.y][-i + pos.x - (house.size_w - 1) / 2] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x + -2 - (house.size_w - 1) / 2, pos.y)
+            }
+
+
+
+        }
+
+        findHouseExits(house1, house2) {
+            var diff_x = house2.getCenterPos().x - house1.getCenterPos().x
+            var diff_y = house2.getCenterPos().y - house1.getCenterPos().y
+            var vec_len = Math.sqrt(Math.pow(diff_x, 2) + Math.pow(diff_y, 2))
+            var x_norm = diff_x / vec_len
+            var y_norm = diff_y / vec_len
+            var pos1, pos2
+            if (Math.abs(x_norm) > Math.abs(y_norm)) {
+                if (x_norm > 0){
+                    pos1 = this.drawHouseDoor(house1, NESW[EAST])
+                    pos2 = this.drawHouseDoor(house2, NESW[WEST])
+                }
+                else {
+                    pos1 = this.drawHouseDoor(house1, NESW[WEST])
+                    pos2 = this.drawHouseDoor(house2, NESW[EAST])
+                }
+            }
+            else {
+                if (y_norm > 0) {
+                    pos1 =this.drawHouseDoor(house1, NESW[SOUTH])
+                    pos2 = this.drawHouseDoor(house2, NESW[NORTH])
+                }
+                else {
+                    pos1 = this.drawHouseDoor(house1, NESW[NORTH])
+                    pos2 = this.drawHouseDoor(house2, NESW[SOUTH])
+                }
+
+            }
+            return [pos1, pos2]
+
+        }
         startGen() {
-            var houses = this.makeHouses(20)
+            var t0 = performance.now()
+            var houses = this.makeHouses(30)
             // this.placeHouse(houses[0])
             for (var i = 0; i < houses.length; i++)
                 this.placeHouse(houses[i])
@@ -356,10 +537,47 @@
 
             this.connectHouses(this.houses[0])
 
-            console.log(this.connectedHouses)
+            for (var i = 0; i < this.houses.length; i++) {
+                if (this.houses[i].connectedTo == null) {
+                    var house = this.houses[i]
+                    var closest = Infinity
+                    var closest_neighbour = null
+                    for ( j = 0; j < this.connectedHouses.length; j++) {
+                        var dist = this.distanceBetweenHouses(house, this.connectedHouses[j])
+                        if (dist < closest) {
+                            closest = dist
+                            closest_neighbour = this.connectedHouses[j]
+                        }
+                    }
+                    this.houses[i].connectedTo = closest_neighbour;
+                    this.connectedHouses.push(this.houses[i])
+                    // while (true) {
+                    //     var randval = random(0, this.houses.length) 
+                    //     if (randval != i) {
+                    //         break;
+                    //     }
+                    // }
+                }
+            }
+           
+            for (var i = 0; i < this.houses.length; i++) {
+                if ( this.houses[i].connectedTo != null) {
+                    var doors = this.findHouseExits(this.houses[i], this.houses[i].connectedTo)
+                    // this.drawPos(doors[0], "red")
+                    // this.drawPos(doors[1], "green")
+                    this.AStarConnectNodes(doors[0], doors[1])
+                }
+            }
+            var t1 = performance.now()
+            console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.")
             this.renderGrid()
-            for (var i = 0; i < this.connectedHouses.length; i++)
-                this.drawConnection(this.connectedHouses[i], this.connectedHouses[i].connectedTo)
+
+
+            // for (var i = 0; i < this.houses.length; i++) {
+            //     this.drawPos(this.houses[i].getCenterPos(), "white")
+            // }
+            //  for (var i = 0; i < this.connectedHouses.length; i++)
+            //      this.drawConnection(this.connectedHouses[i], this.connectedHouses[i].connectedTo)
         }
 
         renderGrid() {
@@ -369,15 +587,17 @@
                     {
                         switch(this.grid[y][x]) {
                             case celltype.EMPTY:
+                                fill_image(this.startX + x, this.startY + y, "water")
                                 break;
                             case celltype.ROOM_FLOOR:
-                                fill_pos(this.startX + x, this.startY + y, "green")
+                                fill_image(this.startX + x, this.startY + y, "black_tile")
                                 break;
                             case celltype.ROOM_DOOR:
                                 fill_pos(this.startX + x, this.startY + y, "yellow")
                                 break;
                             case celltype.ROCK:
-                                fill_pos(this.startX + x, this.startY + y, "gray")
+                                fill_image(this.startX + x, this.startY + y, "water")
+                                // fill_pos(this.startX + x, this.startY + y, "black")
                                 break;
                         }
                     }
@@ -387,10 +607,10 @@
     }
 
     var zones = Array()
-    zones.push(new Zone(1, 1, 40, 40))
-    zones.push(new Zone(50, 1, 40, 40))
-    zones.push(new Zone(1, 50, 40, 40))
-    zones.push(new Zone(50, 50, 40, 40))
+    zones.push(new Zone(1, 1, 120, 120))
+    // zones.push(new Zone(50, 1, 40, 40))
+    // zones.push(new Zone(1, 50, 40, 40))
+    // zones.push(new Zone(50, 50, 40, 40))
 
 
 
@@ -409,12 +629,21 @@
             }
         }
     }
+
+    imageURL.forEach(src => {  
+        const image = new Image();
+        image.src = src.path;
+        image.onload = () => {
+            imageCount += 1;
+            zones.forEach(zone => {
+                zone.drawBorder()
+                zone.startGen()
+            });
+        }
+        images[src.name] = image
+    });
     // zones[0].drawBorder()
     // zones[0].startGen()
     // grid
-    zones.forEach(zone => {
-        zone.drawBorder()
-        zone.startGen()
-    });
 
 </script>
