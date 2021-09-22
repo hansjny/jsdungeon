@@ -13,9 +13,12 @@
     var ctx = c.getContext("2d");
     var grid_w = 100
     var grid_h = 100
-    var grid_s = 13
+    var grid_s = 6
     const imageURL = [{path: "images/black_tile.png", name : "black_tile"},
-    {path :"images/white_tile.png", name : "white_tile"},
+    {path :"images/wall_horizontal.png", name : "w_horizontal"},
+    {path :"images/wall_vertical.png", name : "w_vertical"},
+    {path :"images/wall_nw_corner.png", name : "w_nw"},
+    {path :"images/wall_se_corner.png", name : "w_se"},
     {path :"images/water.png", name : "water"}]; 
 
     const images = {}
@@ -33,8 +36,9 @@
         ctx.fillStyle = color
         ctx.fillRect(0 + grid_s * x, 0 + grid_s * y, grid_s, grid_s);
     }
-    function fill_image(x, y, img) {
-        ctx.drawImage(images[img], 0 + grid_s * x, 0 + grid_s * y, grid_s, grid_s); 
+    function fill_image(x, y, img, scale) {
+        var offset = scale * grid_s - grid_s
+        ctx.drawImage(images[img], 0 + grid_s * x - offset, 0 + grid_s * y -offset, grid_s * scale, grid_s * scale); 
     }
 
     function fill_line(x1, y1, x2, y2, offsetX, offsetY) {
@@ -59,7 +63,13 @@
 	    BORDER: 1,
 	    ROOM_FLOOR: 2,
 	    ROOM_DOOR: 3,
-        ROCK: 4
+        ROCK: 4,
+        WALL_HORIZONTAL: 5,
+        WALL_VERTICAL: 6,
+        WALL_CORNER_SE: 7,
+        WALL_CORNER_NW: 8,
+        WALL_CORNER_HORIZONTAL: 9,
+        WALL_CORNER_VERTICAL: 10
     }
 
 
@@ -209,7 +219,7 @@
         }
 
         drawImagePos(pos, image) {
-            fill_image(pos.x + this.startX, pos.y + this.startY, image)
+            fill_image(pos.x + this.startX, pos.y + this.startY, image, 1)
         }
 
         distanceBetweenHouses(house1, house2) {
@@ -267,7 +277,7 @@
         canPlaceHouse(x, y, house) {
             var w = house.size_w
             var h = house.size_h
-            var spacing = 3
+            var spacing = 5
             var edge_spacing = 5
 
             if (x < edge_spacing || x + w > this.size_w - edge_spacing || y < edge_spacing || y + h > this.size_h - edge_spacing)
@@ -525,9 +535,144 @@
             return [pos1, pos2]
 
         }
+
+        posValid(x, y) {
+           return x >= 0 &&  x < this.size_w && y >= 0 && y < this.size_h
+        }
+
+        tileNorth(x, y) {
+            if (this.posValid(x, y - 1)) {
+               return this.grid[y - 1][x] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileWest(x, y) {
+            if (this.posValid(x - 1, y)) {
+               return this.grid[y][x - 1] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileSouth(x, y) {
+            if (this.posValid(x, y + 1)) {
+               return this.grid[y + 1][x] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileEast(x, y) {
+            if (this.posValid(x + 1, y)) {
+               return this.grid[y][x + 1] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileNorthEast(x, y) {
+            if (this.posValid(x + 1, y - 1)) {
+               return this.grid[y - 1][x + 1] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileNorthWest(x, y) {
+            if (this.posValid(x - 1, y - 1)) {
+               return this.grid[y - 1][x - 1] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileSouthEast(x, y) {
+            if (this.posValid(x + 1, y + 1)) {
+               return this.grid[y + 1][x + 1] == celltype.ROOM_FLOOR
+            }
+        }
+
+        tileSouthWest(x, y) {
+            if (this.posValid(x - 1, y + 1)) {
+               return this.grid[y + 1][x - 1] == celltype.ROOM_FLOOR
+            }
+        }
+
+        drawWalls() {
+            var grid = this.grid
+            for (var y = 0; y < this.size_h; y++) {
+                for (var x = 0; x < this.size_w; x++) {
+                    if (grid[y][x] == celltype.ROOM_FLOOR) {
+                        continue
+                    }
+
+                    // North west corner
+                    if (this.tileSouthEast(x, y) && (!this.tileEast(x, y) && !this.tileSouth(x, y) && !this.tileNorthWest(x, y)))
+                        grid[y][x]  = celltype.WALL_CORNER_NW
+
+                    else if (this.tileNorthWest(x, y) && this.tileNorth(x, y) && this.tileWest(x, y))
+                        grid[y][x]  = celltype.WALL_CORNER_NW
+                        
+                    // North wall
+                    else if (!this.tileEast(x, y) && !this.tileWest(x, y) && this.tileSouth(x, y) && !this.tileNorthWest(x, y))
+                        grid[y][x]  = celltype.WALL_HORIZONTAL
+
+                    //North east corner
+                    else if (this.tileSouthWest(x, y) && !this.tileSouth(x, y) && !this.tileWest(x, y) && !this.tileNorthWest(x, y))
+                        grid[y][x]  = celltype.WALL_CORNER_HORIZONTAL
+
+                    //East Wall
+                    else if (this.tileWest(x, y))
+                        grid[y][x]  = celltype.WALL_VERTICAL
+                    
+                    //South east corner
+                    else if (this.tileNorthWest(x, y) && !this.tileWest(x, y) && !this.tileNorth(x, y))
+                        grid[y][x]  = celltype.WALL_CORNER_SE
+
+                    //South wall
+                    else if (!this.tileWest(x, y) && this.tileNorth(x, y))
+                        grid[y][x]  = celltype.WALL_HORIZONTAL
+
+                    //West Wall
+                    else if (this.tileEast(x, y) && !this.tileSouth(x, y))
+                        grid[y][x]  = celltype.WALL_VERTICAL
+
+                    //South west corner
+                    else if (this.tileNorthEast(x, y) && !this.tileEast(x, y) && !this.tileNorth(x, y))
+                        grid[y][x]  = celltype.WALL_CORNER_VERTICAL
+                    
+                    // //Inner north west corner
+                    else if (this.tileEast(x, y) && this.tileSouth(x, y))
+                        grid[y][x]  = celltype.WALL_CORNER_SE
+
+                    // //South west weirdass corner
+                    else if (this.tileNorthEast(x, y) && this.tileSouth(x, y) && !this.tileEast(x, y) && !this.tileNorth(x, y) && !this.tileSouthWest(x, y))
+                        grid[y][x]  = celltype.WALL_CORNER_SE
+                    
+
+                }
+            }
+        }
+
+        fixHoles() {
+            for (var y = 0; y < this.size_h; y++) {
+                for (var x = 0; x < this.size_w; x++) {
+                    var neighbourCount = 0
+                    if (this.grid[y][x] == celltype.ROOM_FLOOR) {
+                        continue
+                    }
+
+                    for (var j = y - 1; j <= y + 1; j++) {
+                        for (var i = x - 1; i <= x + 1; i++) {
+                            if (this.posValid(i, j)) {
+                                if (this.grid[j][i] == celltype.ROOM_FLOOR) {
+                                    neighbourCount++
+                                }
+                            }
+                        }
+                    }
+
+                    if (neighbourCount >= 5) {
+                        this.grid[y][x] = celltype.ROOM_FLOOR
+                        console.log(this.grid[y][x])
+                    }
+                }
+            }
+
+        }
         startGen() {
             var t0 = performance.now()
-            var houses = this.makeHouses(30)
+            var houses = this.makeHouses(200)
             // this.placeHouse(houses[0])
             for (var i = 0; i < houses.length; i++)
                 this.placeHouse(houses[i])
@@ -570,6 +715,9 @@
             }
             var t1 = performance.now()
             console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.")
+            this.fixHoles()
+            this.fixHoles()
+            this.drawWalls()
             this.renderGrid()
 
 
@@ -587,17 +735,50 @@
                     {
                         switch(this.grid[y][x]) {
                             case celltype.EMPTY:
-                                fill_image(this.startX + x, this.startY + y, "water")
+                                fill_image(this.startX + x, this.startY + y, "water", 1)
                                 break;
+
                             case celltype.ROOM_FLOOR:
-                                fill_image(this.startX + x, this.startY + y, "black_tile")
+                                fill_image(this.startX + x, this.startY + y, "black_tile", 1)
                                 break;
+
                             case celltype.ROOM_DOOR:
                                 fill_pos(this.startX + x, this.startY + y, "yellow")
                                 break;
+
                             case celltype.ROCK:
-                                fill_image(this.startX + x, this.startY + y, "water")
+                                fill_image(this.startX + x, this.startY + y, "water", 1)
                                 // fill_pos(this.startX + x, this.startY + y, "black")
+                                break;
+
+                            case celltype.WALL_HORIZONTAL:
+                                fill_image(this.startX + x, this.startY + y, "black_tile", 1)
+                                fill_image(this.startX + x, this.startY + y, "w_horizontal", 2)
+                                break;
+
+                            case celltype.WALL_CORNER_HORIZONTAL:
+                                fill_image(this.startX + x, this.startY + y, "water", 1)
+                                fill_image(this.startX + x, this.startY + y, "w_horizontal", 2)
+                                break;
+
+                            case celltype.WALL_VERTICAL:
+                                fill_image(this.startX + x, this.startY + y, "black_tile", 1)
+                                fill_image(this.startX + x, this.startY + y, "w_vertical", 2)
+                                break;
+
+                            case celltype.WALL_CORNER_VERTICAL:
+                                fill_image(this.startX + x, this.startY + y, "water", 1)
+                                fill_image(this.startX + x, this.startY + y, "w_vertical", 2)
+                                break;
+                                
+                            case celltype.WALL_CORNER_NW:
+                                fill_image(this.startX + x, this.startY + y, "black_tile", 1)
+                                fill_image(this.startX + x, this.startY + y, "w_nw", 2)
+                                break;
+
+                            case celltype.WALL_CORNER_SE:
+                                fill_image(this.startX + x, this.startY + y, "black_tile", 1)
+                                fill_image(this.startX + x, this.startY + y, "w_se", 2)
                                 break;
                         }
                     }
@@ -607,7 +788,7 @@
     }
 
     var zones = Array()
-    zones.push(new Zone(1, 1, 40, 40))
+    zones.push(new Zone(1, 1, 190, 190))
     // zones.push(new Zone(50, 1, 40, 40))
     // zones.push(new Zone(1, 50, 40, 40))
     // zones.push(new Zone(50, 50, 40, 40))
@@ -635,10 +816,11 @@
         image.src = src.path;
         image.onload = () => {
             imageCount += 1;
-            zones.forEach(zone => {
-                zone.drawBorder()
-                zone.startGen()
-            });
+            if (imageCount == imageURL.length)
+                zones.forEach(zone => {
+                    zone.drawBorder()
+                    zone.startGen()
+                });
         }
         images[src.name] = image
     });
