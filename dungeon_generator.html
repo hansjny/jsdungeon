@@ -13,7 +13,7 @@
     var ctx = c.getContext("2d");
     var grid_w = 100
     var grid_h = 100
-    var grid_s = 6
+    var grid_s = 15
     const imageURL = [{path: "images/black_tile.png", name : "black_tile"},
     {path :"images/wall_horizontal.png", name : "w_horizontal"},
     {path :"images/wall_vertical.png", name : "w_vertical"},
@@ -31,6 +31,8 @@
     let SOUTH = 3
     let WEST = 4
     var NESW = [NORTH, EAST, SOUTH, WEST]
+    var room_placement_variation = 50
+    var random_stones_generation_chance = 0.95
 
     function fill_pos(x, y, color) {
         ctx.fillStyle = color
@@ -188,7 +190,7 @@
             this.houseSize = [3, 5, 7]
             this.houses = []
             this.connectedHouses = []
-            this.rockChance = 0.87
+            this.rockChance = random_stones_generation_chance
             console.error(" GRID SIZE height: ", this.size_h, "width: ", this.size_h)
             for (var i = 0; i < this.size_h; i++) {
                 this.grid[i] = new Array(this.size_w);
@@ -317,8 +319,8 @@
             {
                 for (var x = 0; x < this.size_w; x += w ) 
                 {
-                    var random_wiggle_x = random(x - (random(1, 20)), x + random(1, 20))
-                    var random_wiggle_y = random(y - (random(1, 20)), y + random(1, 20))
+                    var random_wiggle_x = random(x - (random(1, room_placement_variation)), x + random(1, room_placement_variation))
+                    var random_wiggle_y = random(y - (random(1, room_placement_variation)), y + random(1, room_placement_variation))
                     if (this.canPlaceHouse(random_wiggle_x, random_wiggle_y, house)) 
                     {
                         this.addHouse(random_wiggle_y,random_wiggle_x, house)
@@ -788,7 +790,7 @@
     }
 
     var zones = Array()
-    zones.push(new Zone(1, 1, 190, 190))
+    zones.push(new Zone(1, 1, 80, 80))
     // zones.push(new Zone(50, 1, 40, 40))
     // zones.push(new Zone(1, 50, 40, 40))
     // zones.push(new Zone(50, 50, 40, 40))
