@@ -14,6 +14,13 @@
     var grid_w = 100
     var grid_h = 100
     var grid_s = 15
+    var map_size = 80
+    var room_spacing = 7
+    var border_spacing = 3
+    var room_placement_variation = 2
+    var random_stones_generation_chance = 0.99
+    var houseSizes =  [10]
+
     const imageURL = [{path: "images/black_tile.png", name : "black_tile"},
     {path :"images/wall_horizontal.png", name : "w_horizontal"},
     {path :"images/wall_vertical.png", name : "w_vertical"},
@@ -31,8 +38,6 @@
     let SOUTH = 3
     let WEST = 4
     var NESW = [NORTH, EAST, SOUTH, WEST]
-    var room_placement_variation = 50
-    var random_stones_generation_chance = 0.95
 
     function fill_pos(x, y, color) {
         ctx.fillStyle = color
@@ -133,7 +138,9 @@
         }
 
         getCenterPos() {
-            return new Pos(this.x + (this.size_w - 1) / 2, this.y + (this.size_h - 1) / 2 )
+            var mod_w = this.size_w % 2
+            var mod_h = this.size_h % 2
+            return new Pos(this.x + (this.size_w - mod_w) / 2, this.y + (this.size_h - mod_h) / 2 )
         }
         
         getPos() {
@@ -143,19 +150,6 @@
             return "House: " + this.x + " " + this.y
         }
 
-        makeDoors() {
-            var door_distribution = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 4]
-            var door_count = door_distribution[random(0, door_distribution.length -1)]
-            var current_door_count = 0;
-            var doors = ["door_w", "door_e", "door_n", "door_s" ]
-            while (current_door_count < door_count) {
-                var door_dir = doors[random(0, doors.length)]
-                if (this[door_dir] == false) {
-                    this[door_dir] = true;
-                    current_door_count++;
-                }
-            }
-        }
         placeDoors() {
             var y = this.y
             var x = this.x
@@ -187,7 +181,7 @@
             this.size_h = sizeY
             this.colors = ["red", "blue", "green", "purple", "teal", "black", "pink", "yellow", "orange"]
             this.grid = new Array(this.size_h);
-            this.houseSize = [3, 5, 7]
+            this.houseSize = houseSizes 
             this.houses = []
             this.connectedHouses = []
             this.rockChance = random_stones_generation_chance
@@ -243,7 +237,6 @@
                 var size = this.houseSize[random(0, this.houseSize.length)]
                 var house = new House(size, size, this, i)
                 houses.push(house)
-                house.makeDoors()
             }
             return houses
         }
@@ -279,8 +272,8 @@
         canPlaceHouse(x, y, house) {
             var w = house.size_w
             var h = house.size_h
-            var spacing = 5
-            var edge_spacing = 5
+            var spacing = room_spacing
+            var edge_spacing = border_spacing
 
             if (x < edge_spacing || x + w > this.size_w - edge_spacing || y < edge_spacing || y + h > this.size_h - edge_spacing)
                 return false
@@ -479,29 +472,32 @@
         drawHouseDoor(house, dir) {
             var pos = house.getCenterPos()
             var door_entry_len = 2
+            var house_size_h_mod = house.size_h % 2
+            var house_size_w_mod = house.size_w % 2
+            var extra_mod = (house_size_w_mod == 0) ? 1 : 0
+            console.log(house_size_w_mod, house.size_w)
             switch(dir) {
-                case NESW[NORTH]:
-                    // this.grid[pos.y - (house.size_h - 1) / 2][pos.x] = celltype.ROOM_DOOR
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[-i + pos.y - (house.size_h - 1) / 2][pos.x] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x, pos.y - 2 - (house.size_h - 1) / 2)
-                case NESW[SOUTH]:
-                    // this.grid[pos.y + (house.size_h - 1) / 2][pos.x] = celltype.ROOM_DOOR
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[i + pos.y + (house.size_h - 1) / 2][pos.x] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x, pos.y + 2 + (house.size_h - 1) / 2) 
-                case NESW[EAST]:
-                    // this.grid[pos.y][pos.x + (house.size_w - 1) / 2] = celltype.ROOM_DOOR
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[pos.y][i + pos.x + (house.size_w - 1) / 2] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x + 2 + (house.size_w - 1) / 2, pos.y)
-                case NESW[WEST]:
-                    // this.grid[pos.y][pos.x - (house.size_w - 1) / 2] = celltype.ROOM_DOOR
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[pos.y][-i + pos.x - (house.size_w - 1) / 2] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x + -2 - (house.size_w - 1) / 2, pos.y)
-            }
 
+                case NESW[NORTH]:
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[-i + pos.y - (house.size_h - house_size_h_mod) / 2][pos.x] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x, pos.y - 2 - (house.size_h - house_size_h_mod) / 2)
+
+                case NESW[SOUTH]:
+                    for (i = 1; i <= door_entry_len; i++) 
+                            this.grid[i + pos.y + (house.size_h - house_size_h_mod) / 2 -extra_mod][pos.x] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x, pos.y + 2 + (house.size_h - house_size_h_mod) / 2 - extra_mod) 
+                    
+                case NESW[EAST]:
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[pos.y][i + pos.x + (house.size_w - house_size_w_mod) / 2 - extra_mod] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x + 2 + (house.size_w - house_size_w_mod) / 2 - extra_mod, pos.y)
+
+                case NESW[WEST]:
+                    for (i = 1; i <= door_entry_len; i++) 
+                        this.grid[pos.y][-i + pos.x - (house.size_w - house_size_w_mod) / 2] = celltype.ROOM_FLOOR
+                    return new Pos(pos.x + -2 - (house.size_w - house_size_w_mod) / 2, pos.y)
+            }
 
 
         }
@@ -664,7 +660,7 @@
                         }
                     }
 
-                    if (neighbourCount >= 5) {
+                    if (neighbourCount >= 6) {
                         this.grid[y][x] = celltype.ROOM_FLOOR
                         console.log(this.grid[y][x])
                     }
@@ -710,8 +706,8 @@
             for (var i = 0; i < this.houses.length; i++) {
                 if ( this.houses[i].connectedTo != null) {
                     var doors = this.findHouseExits(this.houses[i], this.houses[i].connectedTo)
-                    // this.drawPos(doors[0], "red")
-                    // this.drawPos(doors[1], "green")
+                    this.drawPos(doors[0], "red")
+                    this.drawPos(doors[1], "green")
                     this.AStarConnectNodes(doors[0], doors[1])
                 }
             }
@@ -790,10 +786,7 @@
     }
 
     var zones = Array()
-    zones.push(new Zone(1, 1, 80, 80))
-    // zones.push(new Zone(50, 1, 40, 40))
-    // zones.push(new Zone(1, 50, 40, 40))
-    // zones.push(new Zone(50, 50, 40, 40))
+    zones.push(new Zone(1, 1, map_size, map_size))
 
 
 
