@@ -15,11 +15,11 @@
     var grid_h = 100
     var grid_s = 15
     var map_size = 80
-    var room_spacing = 7
-    var border_spacing = 3
-    var room_placement_variation = 2
-    var random_stones_generation_chance = 0.99
-    var houseSizes =  [10]
+    var room_spacing = 4
+    var border_spacing = 6
+    var room_placement_variation = 0
+    var random_stones_generation_chance = 0.97
+    var houseSizes =  [3, 4, 5]
 
     const imageURL = [{path: "images/black_tile.png", name : "black_tile"},
     {path :"images/wall_horizontal.png", name : "w_horizontal"},
@@ -308,15 +308,18 @@
         placeHouse(house) {
             var w = house.size_w
             var h = house.size_h
+
+            var rand_start_x = random(0, this.size_w);
+            var rand_start_y = random(0, this.size_h);
             for (var y = 0; y < this.size_h; y += h) 
             {
                 for (var x = 0; x < this.size_w; x += w ) 
                 {
-                    var random_wiggle_x = random(x - (random(1, room_placement_variation)), x + random(1, room_placement_variation))
-                    var random_wiggle_y = random(y - (random(1, room_placement_variation)), y + random(1, room_placement_variation))
-                    if (this.canPlaceHouse(random_wiggle_x, random_wiggle_y, house)) 
+                    var pos_x = (x + rand_start_x) % this.size_w;
+                    var pos_y = (y + rand_start_y) % this.size_h;
+                    if (this.canPlaceHouse(pos_x, pos_y, house)) 
                     {
-                        this.addHouse(random_wiggle_y,random_wiggle_x, house)
+                        this.addHouse(pos_y, pos_x, house)
 
                         // house.placeDoors()
                         return
@@ -474,29 +477,21 @@
             var door_entry_len = 2
             var house_size_h_mod = house.size_h % 2
             var house_size_w_mod = house.size_w % 2
-            var extra_mod = (house_size_w_mod == 0) ? 1 : 0
+            var extra_mod = (house_size_w_mod == 0) ? 0 : 0
             console.log(house_size_w_mod, house.size_w)
             switch(dir) {
 
                 case NESW[NORTH]:
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[-i + pos.y - (house.size_h - house_size_h_mod) / 2][pos.x] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x, pos.y - 2 - (house.size_h - house_size_h_mod) / 2)
+                    return new Pos(pos.x, pos.y - (house.size_h - house_size_h_mod) / 2)
 
                 case NESW[SOUTH]:
-                    for (i = 1; i <= door_entry_len; i++) 
-                            this.grid[i + pos.y + (house.size_h - house_size_h_mod) / 2 -extra_mod][pos.x] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x, pos.y + 2 + (house.size_h - house_size_h_mod) / 2 - extra_mod) 
+                    return new Pos(pos.x, pos.y + (house.size_h - house_size_h_mod) / 2 - extra_mod) 
                     
                 case NESW[EAST]:
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[pos.y][i + pos.x + (house.size_w - house_size_w_mod) / 2 - extra_mod] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x + 2 + (house.size_w - house_size_w_mod) / 2 - extra_mod, pos.y)
+                    return new Pos(pos.x + (house.size_w - house_size_w_mod) / 2 - extra_mod, pos.y)
 
                 case NESW[WEST]:
-                    for (i = 1; i <= door_entry_len; i++) 
-                        this.grid[pos.y][-i + pos.x - (house.size_w - house_size_w_mod) / 2] = celltype.ROOM_FLOOR
-                    return new Pos(pos.x + -2 - (house.size_w - house_size_w_mod) / 2, pos.y)
+                    return new Pos(pos.x - (house.size_w - house_size_w_mod) / 2, pos.y)
             }
 
 
@@ -713,8 +708,8 @@
             }
             var t1 = performance.now()
             console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.")
-            this.fixHoles()
-            this.fixHoles()
+            //this.fixHoles()
+            //this.fixHoles()
             this.drawWalls()
             this.renderGrid()
 
@@ -722,8 +717,10 @@
             // for (var i = 0; i < this.houses.length; i++) {
             //     this.drawPos(this.houses[i].getCenterPos(), "white")
             // }
-            //  for (var i = 0; i < this.connectedHouses.length; i++)
-            //      this.drawConnection(this.connectedHouses[i], this.connectedHouses[i].connectedTo)
+            this.drawPos(this.houses[0].getCenterPos(), "red")
+             for (var i = 0; i < this.connectedHouses.length; i++) {
+                 this.drawConnection(this.connectedHouses[i], this.connectedHouses[i].connectedTo)
+             }
         }
 
         renderGrid() {
